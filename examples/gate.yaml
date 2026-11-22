@@ -1,0 +1,4 @@
+# conftest --data examples/gate.yaml  (or opa eval -d examples/gate.yaml)
+gjallar_gate:
+  fail_on: high        # urgent | high | medium | low
+  fail_on_kev: true    # also fail on known-exploited CVEs below that band
