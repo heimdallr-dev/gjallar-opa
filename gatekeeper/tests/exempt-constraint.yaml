@@ -1,0 +1,6 @@
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: GjallarBaseline
+metadata: { name: gjallar-baseline-exempt }
+spec:
+  enforcementAction: deny
+  parameters: { exemptChecks: ["GJ-004", "GJ-005", "GJ-006", "GJ-007", "GJ-009"] }

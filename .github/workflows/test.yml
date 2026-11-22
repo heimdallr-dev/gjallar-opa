@@ -15,3 +15,9 @@ jobs:
           echo "$(curl -sSfL "$base/opa_linux_amd64_static.sha256" | cut -d' ' -f1)  opa" | sha256sum -c -
           chmod +x opa && sudo mv opa /usr/local/bin/
       - run: opa fmt --fail -l policy && opa check --strict policy && opa test policy -v
+      - name: Gatekeeper gator (checksum-verified)
+        run: |
+          f=gator-v3.23.1-linux-amd64.tar.gz
+          curl -sSfLO "https://github.com/open-policy-agent/gatekeeper/releases/download/v3.23.1/$f"
+          echo "c268d7b809c9fe59a110ab0bf7c296ab00b0b6c894c209cd15e94194590291bb  $f" | sha256sum -c -
+          tar -xzf "$f" gator && ./gator verify gatekeeper -v

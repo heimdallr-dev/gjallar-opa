@@ -1,0 +1,12 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: web }
+spec:
+  template:
+    spec:
+      securityContext: { runAsNonRoot: true }
+      containers:
+        - name: web
+          image: harbor.local:5000/shop/web:1.4
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
+          resources: { limits: { cpu: "1", memory: 256Mi } }

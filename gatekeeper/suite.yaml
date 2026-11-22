@@ -1,0 +1,16 @@
+kind: Suite
+apiVersion: test.gatekeeper.sh/v1alpha1
+metadata: { name: gjallar-baseline }
+tests:
+  - name: baseline
+    template: template.yaml
+    constraint: constraint.yaml
+    cases:
+      - { name: hardened-deployment-allowed, object: tests/hardened.yaml, assertions: [{ violations: no }] }
+      - { name: risky-pod-fails-all-nine, object: tests/risky.yaml, assertions: [{ violations: 9 }] }
+      - { name: privileged-message-explains-why, object: tests/risky.yaml, assertions: [{ violations: 1, message: "GJ-001 Pod/bad container c: privileged" }] }
+  - name: exemptions
+    template: template.yaml
+    constraint: tests/exempt-constraint.yaml
+    cases:
+      - { name: only-non-exempt-checks-fire, object: tests/risky.yaml, assertions: [{ violations: 4 }] }

@@ -8,6 +8,7 @@ particular admission controller required.
 |---|---|
 | `policy/posture/gj.rego` | Posture checks **GJ-001 … GJ-009** for any Kubernetes manifest (Pod, Deployment, StatefulSet, DaemonSet, Job, CronJob). The same checks Gjallar runs on live workloads |
 | `policy/scan/gate.rego` | CI gate over `gjallar scan <image> --json`: fail at or above a risk band, and on known-exploited CVEs; denied licences warn |
+| `gatekeeper/` | OPA Gatekeeper `ConstraintTemplate` (`GjallarBaseline`) with the same nine checks, a `dryrun` constraint, `exemptChecks` for recorded opt-outs, and a `gator verify` suite |
 | `examples/` | `ci.sh` (Conftest in a pipeline), `gate.yaml` (settings) |
 
 Every message says what was found and why (Gjallar's own reasons), for example:
@@ -38,6 +39,7 @@ the line is, and findings you have accepted in Gjallar (VEX) never fail it.
 
 ```bash
 opa test policy -v      # 8 tests: every GJ check, registry-port tags, CronJobs, gate thresholds, accepted findings
+gator verify gatekeeper # Gatekeeper's own engine: allowed, all nine checks, messages, exemptions
 ```
 
 Verified 2026-11-22 with OPA 1.4.2, and the gate against a real
@@ -45,6 +47,7 @@ Verified 2026-11-22 with OPA 1.4.2, and the gate against a real
 
 Kyverno users: equivalent policies ship in
 [gjallar-helm](https://github.com/heimdallr-dev/gjallar-helm/tree/main/policies/kyverno).
-A Gatekeeper ConstraintTemplate wrapping `policy/posture` is planned.
+Gatekeeper users: `kubectl apply -f gatekeeper/template.yaml -f gatekeeper/constraint.yaml`
+(starts in `dryrun`; move to `warn`, then `deny`, when the results look right).
 
 Apache-2.0.

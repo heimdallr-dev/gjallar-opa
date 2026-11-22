@@ -1,0 +1,14 @@
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: GjallarBaseline
+metadata:
+  name: gjallar-baseline
+spec:
+  enforcementAction: dryrun        # see violations in the constraint status first; then warn or deny
+  match:
+    kinds:
+      - { apiGroups: [""], kinds: [Pod] }
+      - { apiGroups: [apps], kinds: [Deployment, StatefulSet, DaemonSet, ReplicaSet] }
+      - { apiGroups: [batch], kinds: [Job, CronJob] }
+    excludedNamespaces: [kube-system, gatekeeper-system]
+  parameters:
+    exemptChecks: []               # e.g. ["GJ-009"]; a recorded, reviewable decision

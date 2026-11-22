@@ -1,0 +1,98 @@
+# Gjallar posture checks GJ-001..GJ-009 for OPA Gatekeeper (same checks as
+# policy/posture/gj.rego and Gjallar's live posture view).
+# Start with enforcementAction: dryrun or warn, like Kyverno's Audit.
+apiVersion: templates.gatekeeper.sh/v1
+kind: ConstraintTemplate
+metadata:
+  name: gjallarbaseline
+  annotations:
+    description: Gjallar posture checks GJ-001..GJ-009; each message says what and why.
+spec:
+  crd:
+    spec:
+      names: { kind: GjallarBaseline }
+      validation:
+        openAPIV3Schema:
+          type: object
+          properties:
+            exemptChecks:
+              description: Checks you have decided not to enforce here, e.g. ["GJ-006", "GJ-009"].
+              type: array
+              items: { type: string }
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package gjallarbaseline
+
+        import future.keywords.contains
+        import future.keywords.if
+        import future.keywords.in
+
+        obj := input.review.object
+
+        pod_spec := obj.spec if obj.kind == "Pod"
+        pod_spec := obj.spec.template.spec if obj.kind in {"Deployment", "StatefulSet", "DaemonSet", "Job", "ReplicaSet"}
+        pod_spec := obj.spec.jobTemplate.spec.template.spec if obj.kind == "CronJob"
+
+        containers contains c if some c in pod_spec.containers
+        containers contains c if some c in pod_spec.initContainers
+
+        name := sprintf("%s/%s", [obj.kind, obj.metadata.name])
+        dangerous := {"SYS_ADMIN", "NET_ADMIN", "SYS_PTRACE", "SYS_MODULE", "ALL"}
+        exempt := {x | some x in object.get(input.parameters, "exemptChecks", [])}
+
+        runs_as_non_root(c) if c.securityContext.runAsNonRoot == true
+        runs_as_non_root(c) if {
+          not c.securityContext.runAsNonRoot == false
+          pod_spec.securityContext.runAsNonRoot == true
+        }
+
+        mutable(image) if endswith(image, ":latest")
+        mutable(image) if {
+          not contains(image, "@")
+          parts := split(image, "/")
+          not contains(parts[count(parts) - 1], ":")
+        }
+
+        found contains ["GJ-001", sprintf("%s container %s: privileged: true gives it full access to the node", [name, c.name])] if {
+          some c in containers
+          c.securityContext.privileged == true
+        }
+        found contains ["GJ-002", sprintf("%s: %s shares the node's namespace with the pod", [name, ns])] if {
+          some ns in ["hostNetwork", "hostPID"]
+          pod_spec[ns] == true
+        }
+        found contains ["GJ-003", sprintf("%s: volume %s mounts a hostPath (node filesystem)", [name, v.name])] if {
+          some v in pod_spec.volumes
+          v.hostPath
+        }
+        found contains ["GJ-004", sprintf("%s container %s: runAsNonRoot is not set, so it may run as root", [name, c.name])] if {
+          some c in containers
+          not runs_as_non_root(c)
+        }
+        found contains ["GJ-005", sprintf("%s container %s: allowPrivilegeEscalation is not false", [name, c.name])] if {
+          some c in containers
+          not c.securityContext.allowPrivilegeEscalation == false
+        }
+        found contains ["GJ-006", sprintf("%s container %s: no CPU/memory limits", [name, c.name])] if {
+          some c in containers
+          not c.resources.limits
+        }
+        found contains ["GJ-007", sprintf("%s container %s: image %s is not pinned (latest or no tag)", [name, c.name, c.image])] if {
+          some c in containers
+          mutable(c.image)
+        }
+        found contains ["GJ-008", sprintf("%s container %s: adds capability %s", [name, c.name, cap])] if {
+          some c in containers
+          some cap in c.securityContext.capabilities.add
+          upper(cap) in dangerous
+        }
+        found contains ["GJ-009", sprintf("%s container %s: readOnlyRootFilesystem is not true", [name, c.name])] if {
+          some c in containers
+          not c.securityContext.readOnlyRootFilesystem == true
+        }
+
+        violation contains {"msg": sprintf("%s %s", [f[0], f[1]])} if {
+          some f in found
+          not f[0] in exempt
+        }

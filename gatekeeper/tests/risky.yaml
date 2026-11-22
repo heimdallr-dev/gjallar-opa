@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Pod
+metadata: { name: bad }
+spec:
+  hostNetwork: true
+  volumes: [{ name: root, hostPath: { path: / } }]
+  containers:
+    - name: c
+      image: nginx
+      securityContext: { privileged: true, capabilities: { add: [SYS_ADMIN] } }
